@@ -1,0 +1,293 @@
+npm i express bcryptjs passport passport-local express-ejs-layouts mongoose connect-flash express-session 
+bcrypts...password should not be in plaintext
+
+1. Created a app.js
+and added these code
+#
+const express = require('express');
+
+const app = express();
+
+const port = 8000;
+
+app.listen(port, console.log(`Server started in ${port}`));
+#
+
+// it will create a server that will show "Cannont get /"  because we have not created a router toh usko pata hi nai h jana kaha h
+
+2 create a route folder ...two js script..index.hs nd users.js
+in index.js add the code
+#
+const express = require('express');
+const router = express.Router();
+
+router.get('/', (req, res) => res.send('Welcome'));
+
+module.exports = router;
+#
+It will not work until u call it..from app.js using a single line of code #app.use('/' , require('./routes/index'));#
+
+3. Need a view to work in front end..need this codei n app.s
+#
+const expressLayouts = require('express-ejs-layouts');
+//EJS
+app.use(expressLayouts);
+app.set('view engine', 'ejs');
+#
+Now create views folder..with layout.ejs, dashboard.ejs , login.ejs, register,ejs
+
+
+4. In layout..doing some front end using bootswatch, fontawesome
+toh ab samjha in html ka chakkar
+dekh ...first in layout.ejs under <body>  write  <%- body %> ...ab isse kya hoga jaaise hi tu welocme.js mai ..<h1> hello </h1> likhega ..this page
+will be loaded in layout's body... now to display this html u have to go in index.js ..nd change one line
+#router.get('/', (req, res) => res.render('welcome'));#
+
+5 . Now jst changinging all the layouts..ok i will explain this code..in welcome.js
+#
+<div class="row mt-5">
+        <div class="col-md-6 m-auto">
+          <div class="card card-body text-center">
+            <h1><i class="fab fa-node-js fa-3x"></i></h1>
+            <p>Create an account or login</p>
+            <a href="/users/register" class="btn btn-primary btn-block mb-2"
+              >Register</a
+            >
+            <a href="/users/login" class="btn btn-secondary btn-block">Login</a>
+          </div>
+        </div>
+      </div>
+#
+see the a href...a button is created with Registerr..when u click it..it will send localhost8000/users/register..as a request
+and u have seen above ..how app.js will route this request
+
+6. Now its time for mongoose
+ 6.1 create a config folder -> create keys.js
+   keys.js - > #module.exports = {
+    MongoURI: 'mongodb+srv://code_21:satyam21@mydatabase-zzk3s.mongodb.net/test?retryWrites=true&w=majority'
+}
+#
+..then in app.js add following code
+#
+const mongoose = require('mongoose');
+const db = require('./config/keys').MongoURI;
+//Connect to Mongo
+mongoose.connect(db, { useNewUrlParser: true})
+  .then(() => console.log('MongoDb Connected'))
+  .catch(err => console.log(err));
+#
+
+
+7 . Now need to create module
+module -> User.js
+We need to create schema with all different fields that we need for a user
+#
+const mongoose = require('mongoose');
+const UserSchema = new mongoose.Schema({
+  name: {
+      type: String,
+      required: True
+  },
+  email: {
+    type: String,
+    required: True
+  },
+  password: {
+    type: String,
+    required: True
+  },
+  date: {
+    type: Date,
+    default: Date.now
+  },
+});
+
+//create a model from our schema 
+const User = mongoose.model('User', UserSchema);
+
+module.exports = User;
+#
+
+
+8. Now we will work on Registration..Since we are getting data from the form(we created in registration page)we need to pass it in our bodyParser 
+middileware which now is a part of express
+add this line in app.js
+#app.use(express.urlencoded({ extended: false}));#
+now we can get data from our form with req.body
+
+8.1 Now comes Interesting Part
+Goto user.js...when we submit the registration form its gonna make a post request to /users/request ..now handle post request
+Add code in user.js
+#
+router.post('/register', (req, res) => {
+   console.log(req.body); // it will give data that we pass through our form ...because of body parser
+   res.send('hello');
+});
+#
+POINT - if u dont user bodyparser...then u cannot use the data in form..its saying undefined when i did req.body
+
+8.2 Now its all about credential
+write this code in users.js
+#
+router.post('/register', (req, res) => {
+   const { name, email, password, password2 } = req.body;
+   let errors = [];
+
+   //Check required fields
+   if(!name || !email || !password || !password2){
+       errors.push({ msg: 'Please fill in all fields'});
+   }
+    // Check passwords
+   if(password != password2){
+       errors.push({ msg: 'Password do not match'})
+   }
+   //Check pass length
+   if(password.length < 6){
+       errors.push({ msg: 'Password should be at least 6 character'})
+   }
+   
+   if(errors.length>0) {
+      res.render('register', {
+          errors,
+          name,
+          email,
+          password,
+          password2
+      });
+   } else {
+       res.send('pass');
+   }
+
+});
+#
+its easy to understand...remember when we render we can pass in values basically variables
+..res.render ka mtln h ki agar error h toh again open register page
+
+8.4 Now the task is to display the error
+create partials in views ...then messages.ejs
+in messages.ejs write followinf code
+#
+<% if(typeof errors != 'undefined') { %>
+    <% errors.forEach(function(error) { %>
+        <%= error.msg %>
+    <% }); %>
+
+<% } %>
+#
+then open register.ejs and add
+#<% include ./partials/messages %>#  if want to change the colour of message use bootstrap
+
+
+9.what about the People who have already registered
+
+in user.js write #const User = require('../models/User'); #
+after if statement we need to write code that checks whether user is already there or not
+1. take user model and findOne()#(user.findOne({ email:email })) #which is a mongoose method that find one record 
+it will return a promise ...then() which will give u user..then(user)..then u have to check for that user..if present
+then rerender the register form and send the error
+#
+ if(errors.length>0) {
+      res.render('register', {
+          errors,
+          name,
+          email,
+          password,
+          password2
+      });
+   } else {
+       //Validation passed
+       User.findOne({ email:email})
+         .then(user => {
+            if(user) {
+                //User exist
+                errors.push({ msg: 'Email is already registered'})
+                res.render('register', {
+                errors,
+                name,
+                email,
+                password,
+                password2
+
+                });
+            }
+            else {
+              const newUser = new User({   //this will create an instaance but we have not saved it yet in the database
+                  name, // name=name
+                  email,
+                  password
+              });
+            }
+         });
+   }
+#
+
+9.1 encrypt the password and save in db
+#
+ bcrypt.genSalt(10, (err, salt) => 
+               bcrypt.hash(newUser.password, salt, (err, hash) =>{
+                 if(err) throw err;
+                //set password to hashed
+                 newUser.password = hash;
+                // Save user 
+                newUser.save() //this will save in db
+                 .then(user =>{
+                     res.redirect('/users/login');
+                 })
+                 .catch(err => console.log(err))
+              }))
+            }
+         });
+#
+
+10. Register is done now its time for login
+First create passport.js inside config folder and add this code... which shows whther email is registered or not..
+#
+const LocalStrategy = require('passport-local').Strategy;
+const mongoose = require('mongoose')
+const bcrypt = require('bcryptjs');
+
+//Load User Model
+const User = require('../models/User');
+
+module.exports = function(passport){ //this passport we will pass from app.js
+    passport.use(
+        new LocalStrategy({ usernameField: 'email' }, (email, password, done) =>{
+            // Match user
+            User.findOne({ email: email})
+            .then(user => {
+                if(!user){
+                    return done(null, false, {message : 'That email is not registered'})
+                }
+ bcrypt.compare(password, user.password, (err, isMatch) => {
+                if(err) throw err;
+                if(isMatch){
+                    return done(null, user);
+                }else{
+                    return done(null, false, { message : 'password incorrect'});
+                }
+            });
+            })
+            .catch(err => console.log(err));
+
+        })
+    );
+
+}
+#
+we want to export the strategy that we are gonna make...which is a function which takes the parameter as passport
+new LocalStrategy means -> ki isme we are giving main importance to email..now check if there is email in database
+whatever they pass in login match
+in .then ->either it will giive us user or null ..after u know.
+
+Now we need to check if they enter wrong password..Its easy to understand
+
+11. Now serilaise and deserialize the user
+In a typical web application, the credentials used to authenticate a user will only be transmitted during the 
+login request. If authentication succeeds, a session will be established and maintained via a cookie set in the
+ user's browser.
+
+Each subsequent request will not contain credentials, but rather the unique cookie that identifies the session.
+ In order to support login sessions, Passport will serialize and deserialize user instances to and from the 
+session.
+
+12. Login as a dashboard ..after tha easy hai..
